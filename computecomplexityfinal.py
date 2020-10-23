@@ -24,7 +24,7 @@ import gc
 
 class CustomComplexityFinal:
 
-	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 500, batchSize = 50, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False):
+	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 500, batchSize = 50, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False, seed=1):
 		self.model = model
 		self.dataset = ds
 		self.computeOver = computeOver
@@ -42,12 +42,13 @@ class CustomComplexityFinal:
 		self.augment = augment
 		self.input_margin = input_margin
 		self.network_scale = network_scale
+		self.seed=seed
  
 	# ====================================== Functions for Margin Based Solution =====================================
 
 	def computeMargins(self, top = 2):
 
-		it = iter(self.dataset.shuffle(5000, seed=1).batch(self.batchSize))
+		it = iter(self.dataset.shuffle(5000, seed=self.seed).batch(self.batchSize))
 
 		marginDistribution = {}
 		totalVariance = {}
@@ -109,7 +110,7 @@ class CustomComplexityFinal:
 			totalVariance[layer] = (np.mean(np.var(totalVarianceTensor[layer].reshape(totalVarianceTensor[layer].shape[0], -1), axis = 0)))**(1/2)
 			normWidth[layer] = math.sqrt(np.prod(totalVarianceTensor[layer].shape[1:]))
 			if self.metric == 'batch_variance':
-				marginDistribution[layer] = np.array(marginDistribution[layer])/(np.array(totalVariance[layer])+1e-7) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
+				marginDistribution[layer] = np.array(marginDistribution[layer])/(np.array(totalVariance[layer])+1) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
 			elif self.metric == 'original':
 				marginDistribution[layer] = np.array(marginDistribution[layer])/np.array(totalVariance[layer]) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
 			
@@ -170,7 +171,7 @@ class CustomComplexityFinal:
 			if self.metric == 'spectral':
 				grads = numerator
 			else:
-				grads = numerator/(denominator+1e-7)
+				grads = numerator/(denominator+1e-5)
 			
 			np_out 	= np.array(intermediateVal[layer])
 
@@ -236,3 +237,32 @@ class CustomComplexityFinal:
 					labels = lbl
 
 		return (tf.convert_to_tensor(mixedBatch), tf.convert_to_tensor(labels))
+
+	# ====================================== Utility Functions ======================================
+
+	def intermediateOutputs(self, layer=None, mode=None, batch=None):
+
+		model_ = keras.Sequential()
+		model_.add(keras.Input(shape=(batch[0][0].shape)))
+		for layer_ in self.model.layers:
+			model_.add(layer_)
+
+		if layer is not None and mode=='pre':
+			if layer >= 0:
+				extractor = keras.Model(inputs=self.model.layers[0].input,
+		                        outputs=self.model.layers[layer].output)
+			else:
+
+				extractor = keras.Model(inputs=self.model.layers[0].input,
+		                        outputs=self.model.layers[0].input)
+		elif layer is not None and mode=='post':
+			input_ = keras.Input(shape = (self.model.layers[layer].input.shape[1:]))
+			next_layer = input_
+			for layer in self.model.layers[layer:layer+2]:
+			    next_layer = layer(next_layer)
+			extractor = keras.Model(input_, next_layer)
+		else:
+			extractor = keras.Model(inputs=self.model.layers[0].input,
+		                        outputs=[layer.output for layer in self.model.layers])
+
+		return extractor

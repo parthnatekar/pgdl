@@ -38,7 +38,7 @@ class DataAugmentor:
 		"""
 		# x = tf.image.random_hue(x, 0.05, seed=self.seed)
 		# x = tf.image.random_saturation(x, 0.6, 1.2, seed=self.seed)
-		x = tf.image.random_brightness(x, 0.05, seed=self.seed)
+		# x = tf.image.random_brightness(x, 0.05, seed=self.seed)
 		x = tf.image.random_contrast(x, 0.7, 1.0, seed=self.seed)
 
 		return x
@@ -55,6 +55,17 @@ class DataAugmentor:
 		# 	clip_value_min = min_, clip_value_max=max_)
 		noise_img = x+noise
 
+		return noise_img
+
+	def brightness(self, x: tf.Tensor) -> tf.Tensor:
+
+		max_ = tf.keras.backend.max(x)
+		min_ = tf.keras.backend.min(x)
+		brightness_val = 0.1*np.random.random_sample() - 0.05
+		noise = tf.constant(brightness_val, shape=x.shape)
+		noise_img = x+noise
+		noise_img = tf.clip_by_value(x, 
+			clip_value_min = min_, clip_value_max=max_)
 		return noise_img
 
 	def zoom(self, x: tf.Tensor) -> tf.Tensor:
@@ -106,10 +117,10 @@ class DataAugmentor:
 		if batch is not None:
 			self.dataset = batch
 		self.dataset = tf.data.Dataset.from_tensor_slices(self.dataset.numpy())
-		self.var = np.var(next(iter(self.dataset.batch(self.batchSize))).numpy(), axis=0)
+		self.min = np.min(next(iter(self.dataset.batch(self.batchSize))).numpy())
 
 		# Add augmentations
-		augmentations = [self.flip, self.zoom]
+		augmentations = [self.flip, self.color, self.zoom]
 
 		# Add the augmentations to the dataset
 		for f in augmentations:

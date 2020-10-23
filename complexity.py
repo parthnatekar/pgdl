@@ -17,6 +17,7 @@ from scipy.stats import *
 from augment import *
 
 def complexity(model, dataset, program_dir):
-	marginScore = complexity_but_simple(model, dataset, augment='standard', program_dir=program_dir)
-	print('-------Final Scores---------', marginScore)
-	return marginScore
+	# marginScore = complexity_but_simple(model, dataset, program_dir=program_dir)
+	DBScore = complexityDB(model, dataset, program_dir=program_dir)	
+	print('-------Final Scores---------', DBScore)
+	return DBScore

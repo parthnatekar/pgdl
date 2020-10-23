@@ -131,20 +131,20 @@ def complexityDB(model, dataset, program_dir=None):
 
 		centroid_distances[centroid_distances == 0] = np.inf
 		combined_intra_dists = intra_dists[:, None] + intra_dists
-		scores = np.nanmean(combined_intra_dists / centroid_distances, axis=1)
-		return np.max(scores)
+		scores = np.max(combined_intra_dists / centroid_distances, axis=1)
+		return np.mean(scores)
 
 	tf.keras.backend.clear_session()
 	db_score = {}
-	C = CustomComplexity(model, dataset, augment='mixup', computeOver=400, batchSize=40)
+	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=400, batchSize=40)
 	it = iter(dataset.batch(C.batchSize))
 	batch=next(it)
 	extractor = C.intermediateOutputs(batch=batch)
 	layers = []
 
-	for l in [0, 1, 2]:
+	for l in [-3, -4, -5]:
 		c = list(model.get_layer(index = l).get_config().keys())
-		if 'filters' in c or 'units' in c:
+		if 'filters' in c:
 			layers.append(l)
 		if len(layers) == 1:
 			break
@@ -156,18 +156,18 @@ def complexityDB(model, dataset, program_dir=None):
 		for i in range(C.computeOver//C.batchSize):
 
 			batch1 = next(it)
-			batch1 = C.batchMixupLabelwise(batch1)
+			# batch1 = C.batchMixupLabelwise(batch1)
 			batch2 = next(it)
-			batch2 = C.batchMixupLabelwise(batch2)
+			# batch2 = C.batchMixupLabelwise(batch2)
 			batch3 = next(it)
-			batch3 = C.batchMixupLabelwise(batch3)
+			# batch3 = C.batchMixupLabelwise(batch3)
 			feature = np.concatenate((extractor(batch1[0].numpy())[l].numpy().reshape(batch1[0].shape[0], -1), 
 										extractor(batch2[0].numpy())[l].numpy().reshape(batch2[0].shape[0], -1), 
 										extractor(batch3[0].numpy())[l].numpy().reshape(batch3[0].shape[0], -1)), axis = 0)
 			target = np.concatenate((batch1[1], batch2[1], batch3[1]), axis = 0)
 			# print(feature.shape)
-			# pca = PCA(n_components=25, random_state=0)
-			# feature = pca.fit_transform(feature)
+			pca = PCA(n_components=25, random_state=0)
+			feature = pca.fit_transform(feature)
 			try:
 				db_score[l] += db(feature, target)/(C.computeOver//C.batchSize)
 			except:
