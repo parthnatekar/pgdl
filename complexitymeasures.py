@@ -59,7 +59,7 @@ def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
 		return np.array(ret)
 
 	def computePercentiles(d):
-		return np.array([np.percentile(d, p) for p in list(range(0, 100, 10))])
+		return np.array([np.percentile(d, p) for p in list(range(5, 95, 10))])
 
 	def computeMoments(d):
 		
@@ -73,8 +73,9 @@ def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
 	for label in range(2, 3):
 		for i, index in enumerate(list(marginDistribution[label].keys())):
 			quantiles = np.mean(computeQuantiles(marginDistribution[label][index]))
+			percentiles = np.mean(computePercentiles(marginDistribution[label][index]))
 			mean = np.nanmean(marginDistribution[label][index])
-			score += mean/len(list(marginDistribution[label].keys())) 
+			score += percentiles/len(list(marginDistribution[label].keys())) 
 
 	return -score
 
@@ -131,46 +132,52 @@ def complexityDB(model, dataset, program_dir=None):
 
 		centroid_distances[centroid_distances == 0] = np.inf
 		combined_intra_dists = intra_dists[:, None] + intra_dists
-		scores = np.max(combined_intra_dists / centroid_distances, axis=1)
+		scores = np.nanmean(combined_intra_dists / centroid_distances, axis=1)
 		return np.mean(scores)
 
 	tf.keras.backend.clear_session()
 	db_score = {}
-	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=400, batchSize=40)
+	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=2000, batchSize=40)
 	it = iter(dataset.batch(C.batchSize))
 	batch=next(it)
 	extractor = C.intermediateOutputs(batch=batch)
+	max_pool = tf.keras.layers.MaxPooling2D(pool_size=(4, 4), strides=None, padding="valid", data_format=None)
 	layers = []
 
-	for l in [-3, -4, -5]:
+	for l in [0, 1, 2]:
 		c = list(model.get_layer(index = l).get_config().keys())
-		if 'filters' in c:
+		if 'filters' in c or 'units' in c:
 			layers.append(l)
 		if len(layers) == 1:
 			break
 
-	D = DataAugmentor(batchSize = C.batchSize)
+	# post_size = 1
+	# pool_size = 4
+	# while post_size > 0:
+	# 	post_size = extractor(batch[0].numpy())[l].numpy().shape[1] - pool_size
+	# 	pool_size -= 1
 
+	D = DataAugmentor(batchSize = C.batchSize)
 	for l in layers:
 		it = iter(dataset.shuffle(5000, seed=1).batch(C.batchSize))
 		for i in range(C.computeOver//C.batchSize):
-
+			tf.keras.backend.clear_session()
 			batch1 = next(it)
-			# batch1 = C.batchMixupLabelwise(batch1)
+			# batch1 = (D.augment(batch1[0]), batch1[1])
 			batch2 = next(it)
-			# batch2 = C.batchMixupLabelwise(batch2)
+			# batch2 = (D.augment(batch2[0]), batch2[1])
 			batch3 = next(it)
-			# batch3 = C.batchMixupLabelwise(batch3)
-			feature = np.concatenate((extractor(batch1[0].numpy())[l].numpy().reshape(batch1[0].shape[0], -1), 
-										extractor(batch2[0].numpy())[l].numpy().reshape(batch2[0].shape[0], -1), 
-										extractor(batch3[0].numpy())[l].numpy().reshape(batch3[0].shape[0], -1)), axis = 0)
+			# batch3 = (D.augment(batch3[0]), batch3[1])
+			feature = np.concatenate((max_pool(extractor(batch1[0].numpy())[l]).numpy().reshape(batch1[0].shape[0], -1), 
+										max_pool(extractor(batch2[0].numpy())[l]).numpy().reshape(batch2[0].shape[0], -1), 
+										max_pool(extractor(batch3[0].numpy())[l]).numpy().reshape(batch3[0].shape[0], -1)), axis = 0)
 			target = np.concatenate((batch1[1], batch2[1], batch3[1]), axis = 0)
 			# print(feature.shape)
-			pca = PCA(n_components=25, random_state=0)
-			feature = pca.fit_transform(feature)
+			# pca = PCA(n_components=25, random_state=0)
+			# feature = pca.fit_transform(feature)
 			try:
 				db_score[l] += db(feature, target)/(C.computeOver//C.batchSize)
-			except:
+			except Exception as e:
 				db_score[l] = db(feature, target)/(C.computeOver//C.batchSize)
 		print('layer {} DB:'.format(l), db_score[l])
 

@@ -17,7 +17,9 @@ from scipy.stats import *
 from augment import *
 
 def complexity(model, dataset, program_dir):
-	# marginScore = complexity_but_simple(model, dataset, program_dir=program_dir)
-	DBScore = complexityDB(model, dataset, program_dir=program_dir)	
-	print('-------Final Scores---------', DBScore)
-	return DBScore
+	marginScore = complexity_but_simple(model, dataset, program_dir=program_dir)
+	# DBScore = complexityDB(model, dataset, program_dir=program_dir)
+	# tf.keras.backend.clear_session()
+	# mixupScore = complexityMixup(model, dataset, program_dir=program_dir)	
+	print('-------Final Scores---------', marginScore)
+	return marginScore

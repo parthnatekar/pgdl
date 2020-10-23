@@ -107,10 +107,10 @@ class CustomComplexityFinal:
 			
 		normWidth = {}
 		for layer in self.layers:
-			totalVariance[layer] = (np.mean(np.var(totalVarianceTensor[layer].reshape(totalVarianceTensor[layer].shape[0], -1), axis = 0)))**(1/2)
+			totalVariance[layer] = (trim_mean(np.var(totalVarianceTensor[layer].reshape(totalVarianceTensor[layer].shape[0], -1), axis = 0), proportiontocut=0.05))**(1/2)
 			normWidth[layer] = math.sqrt(np.prod(totalVarianceTensor[layer].shape[1:]))
 			if self.metric == 'batch_variance':
-				marginDistribution[layer] = np.array(marginDistribution[layer])/(np.array(totalVariance[layer])+1) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
+				marginDistribution[layer] = np.array(marginDistribution[layer])/(np.array(totalVariance[layer])+1e-7) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
 			elif self.metric == 'original':
 				marginDistribution[layer] = np.array(marginDistribution[layer])/np.array(totalVariance[layer]) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
 			
@@ -171,7 +171,7 @@ class CustomComplexityFinal:
 			if self.metric == 'spectral':
 				grads = numerator
 			else:
-				grads = numerator/(denominator+1e-5)
+				grads = numerator/(denominator+1e-7)
 			
 			np_out 	= np.array(intermediateVal[layer])
 
