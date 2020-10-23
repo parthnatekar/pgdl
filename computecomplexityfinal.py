@@ -24,7 +24,7 @@ import gc
 
 class CustomComplexityFinal:
 
-	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 500, batchSize = 50, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False, seed=1):
+	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 5000, batchSize = 100, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False, seed=1):
 		self.model = model
 		self.dataset = ds
 		self.computeOver = computeOver
