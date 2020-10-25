@@ -73,9 +73,12 @@ def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
 	for label in range(2, 3):
 		for i, index in enumerate(list(marginDistribution[label].keys())):
 			quantiles = np.mean(computeQuantiles(marginDistribution[label][index]))
-			percentiles = np.mean(computePercentiles(marginDistribution[label][index]))
+			# percentiles = np.mean(computePercentiles(marginDistribution[label][index]))
 			mean = np.nanmean(marginDistribution[label][index])
-			score += percentiles/len(list(marginDistribution[label].keys())) 
+			if abs(mean - quantiles) > abs(quantiles)*10:
+				score += quantiles/len(list(marginDistribution[label].keys())) 
+			else:
+				score += (mean+quantiles)/2/len(list(marginDistribution[label].keys())) 
 
 	return -score
 
@@ -163,11 +166,11 @@ def complexityDB(model, dataset, program_dir=None):
 		for i in range(C.computeOver//C.batchSize):
 			tf.keras.backend.clear_session()
 			batch1 = next(it)
-			# batch1 = (D.augment(batch1[0]), batch1[1])
+			batch1 = (D.augment(batch1[0]), batch1[1])
 			batch2 = next(it)
-			# batch2 = (D.augment(batch2[0]), batch2[1])
+			batch2 = (D.augment(batch2[0]), batch2[1])
 			batch3 = next(it)
-			# batch3 = (D.augment(batch3[0]), batch3[1])
+			batch3 = (D.augment(batch3[0]), batch3[1])
 			feature = np.concatenate((max_pool(extractor(batch1[0].numpy())[l]).numpy().reshape(batch1[0].shape[0], -1), 
 										max_pool(extractor(batch2[0].numpy())[l]).numpy().reshape(batch2[0].shape[0], -1), 
 										max_pool(extractor(batch3[0].numpy())[l]).numpy().reshape(batch3[0].shape[0], -1)), axis = 0)

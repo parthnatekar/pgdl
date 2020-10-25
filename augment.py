@@ -35,7 +35,7 @@ class DataAugmentor:
 
 		Returns:
 		    Augmented image
-		"""
+		# """
 		# x = tf.image.random_hue(x, 0.05, seed=self.seed)
 		# x = tf.image.random_saturation(x, 0.6, 1.2, seed=self.seed)
 		# x = tf.image.random_brightness(x, 0.05, seed=self.seed)
@@ -117,10 +117,9 @@ class DataAugmentor:
 		if batch is not None:
 			self.dataset = batch
 		self.dataset = tf.data.Dataset.from_tensor_slices(self.dataset.numpy())
-		self.min = np.min(next(iter(self.dataset.batch(self.batchSize))).numpy())
 
 		# Add augmentations
-		augmentations = [self.flip, self.color, self.zoom]
+		augmentations = [self.flip, self.brightness, self.color, self.zoom]
 
 		# Add the augmentations to the dataset
 		for f in augmentations:
