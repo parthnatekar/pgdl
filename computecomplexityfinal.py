@@ -48,7 +48,14 @@ class CustomComplexityFinal:
 
 	def computeMargins(self, top = 2):
 
-		it = iter(self.dataset.shuffle(5000, seed=self.seed).batch(self.batchSize))
+		it = iter(self.dataset.repeat(-1).shuffle(5000, seed=self.seed).batch(self.batchSize))
+		batch = next(it)
+		n_classes = 1+np.max(batch[1].numpy())
+		if n_classes*10 > 100:
+			self.batchSize = 100
+		else:
+			self.batchSize = n_classes*10
+		it = iter(self.dataset.repeat(-1).shuffle(5000, seed=self.seed).batch(self.batchSize))
 
 		marginDistribution = {}
 		totalVariance = {}
@@ -64,6 +71,7 @@ class CustomComplexityFinal:
 				self.layers.append(l)
 			if len(self.layers) == 1:
 				break
+
 		if self.input_margin == True:
 			self.layers = [-1]
 
@@ -131,6 +139,8 @@ class CustomComplexityFinal:
 			out_hard = tf.math.top_k(tf.nn.softmax(intermediateVal[-1], axis = 1), k = top)[1]
 			top_1 = out_hard[:,top-2]
 			misclassified = np.where(top_1 != batch[1])
+			# print('Misclassified Samples:', misclassified, len(misclassified[0]))
+
 			if self.penalize:
 				top_1_og = out_hard[:,top-2]
 				top_2_og = out_hard[:,top-1]

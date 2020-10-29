@@ -77,7 +77,7 @@ class DataAugmentor:
 		Returns:
 		    Augmented image
 		"""
-
+		
 		# Generate 20 crop settings, ranging from a 1% to 20% crop.
 		scales = list(np.arange(0.85, 1.0, 0.01))
 		boxes = np.zeros((len(scales), 4))
@@ -89,7 +89,7 @@ class DataAugmentor:
 
 		def random_crop(img):
 		    # Create different crops for an image
-		    crops = tf.image.crop_and_resize([img], boxes=boxes, box_indices=np.zeros(len(scales)), crop_size=(32, 32))
+		    crops = tf.image.crop_and_resize([img], boxes=boxes, box_indices=np.zeros(len(scales)), crop_size=(x.shape[0], x.shape[1]))
 		    # Return a random crop
 		    return crops[tf.random.uniform(shape=[], minval=0, maxval=len(scales), dtype=tf.int32, seed=self.seed)]
 
@@ -119,7 +119,7 @@ class DataAugmentor:
 		self.dataset = tf.data.Dataset.from_tensor_slices(self.dataset.numpy())
 
 		# Add augmentations
-		augmentations = [self.flip, self.brightness, self.color, self.zoom]
+		augmentations = [self.flip, self.color, self.zoom]
 
 		# Add the augmentations to the dataset
 		for f in augmentations:

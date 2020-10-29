@@ -25,6 +25,10 @@ import math
 
 def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
 
+	'''
+	Fuction to calculate margin summary measures on augmented data
+	'''
+
 	keras.backend.clear_session()
 	
 	np.random.seed(0)
@@ -73,17 +77,17 @@ def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
 	for label in range(2, 3):
 		for i, index in enumerate(list(marginDistribution[label].keys())):
 			quantiles = np.mean(computeQuantiles(marginDistribution[label][index]))
-			# percentiles = np.mean(computePercentiles(marginDistribution[label][index]))
 			mean = np.nanmean(marginDistribution[label][index])
-			if abs(mean - quantiles) > abs(quantiles)*10:
-				score += quantiles/len(list(marginDistribution[label].keys())) 
-			else:
-				score += (mean+quantiles)/2/len(list(marginDistribution[label].keys())) 
+			score += quantiles/len(list(marginDistribution[label].keys())) 
 
 	return -score
 
 
 def complexityNorm(model, dataset, program_dir=None):
+
+	'''
+	Function to calculate norm based measures
+	'''
 
 	C = CustomComplexity(model, dataset, metric='batch_variance', augment='standard')
 	Norm = C.getNormComplexity(norm='fro')
@@ -97,6 +101,10 @@ def complexityNorm(model, dataset, program_dir=None):
 	return score
 
 def complexityDB(model, dataset, program_dir=None):
+
+	'''
+	Function to calculate feature clustering based measures
+	'''
 
 	def check_number_of_labels(n_labels, n_samples):
 	    """Check that number of labels are valid.
@@ -140,7 +148,7 @@ def complexityDB(model, dataset, program_dir=None):
 
 	tf.keras.backend.clear_session()
 	db_score = {}
-	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=2000, batchSize=40)
+	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=2500, batchSize=50)
 	it = iter(dataset.batch(C.batchSize))
 	batch=next(it)
 	extractor = C.intermediateOutputs(batch=batch)
@@ -182,17 +190,27 @@ def complexityDB(model, dataset, program_dir=None):
 				db_score[l] += db(feature, target)/(C.computeOver//C.batchSize)
 			except Exception as e:
 				db_score[l] = db(feature, target)/(C.computeOver//C.batchSize)
-		print('layer {} DB:'.format(l), db_score[l])
+		# print('layer {} DB:'.format(l), db_score[l])
 
 	score = np.mean(list(db_score.values()))
 
 	return(score)
 
 def complexityMixup(model, dataset, program_dir=None,
-					computeOver=1000, batchSize=100):
+					computeOver=1000, batchSize=200):
 
+	'''
+	Function to calculate Mixup based measures
+	'''
+	it = iter(dataset.repeat(-1).shuffle(5000).batch(batchSize))
+	batch = next(it)
+	n_classes = 1+np.max(batch[1].numpy())
+	if n_classes*10 > 100:
+		batchSize = 100
+	else:
+		batchSize = n_classes*10
 	tf.keras.backend.clear_session()
-	it = iter(dataset.batch(batchSize))
+	it = iter(dataset.repeat(-1).batch(batchSize))
 	N = computeOver//batchSize
 	batches = [next(it) for i in range(N)]
 	vr = []
@@ -244,7 +262,7 @@ def complexityMixup(model, dataset, program_dir=None,
 				ret.append(np.sum(int_preds==label)/np.size(int_preds))
 		return np.mean(ret)
 
-	for l in range(10):
+	for l in range(n_classes):
 		try:
 			vr.append(veracityRatio(model, batches, l))
 		except:
@@ -254,6 +272,11 @@ def complexityMixup(model, dataset, program_dir=None,
 
 
 def complexityManifoldMixup(model, dataset, program_dir=None):
+
+	'''
+	Function to calculate Manifold Mixup based measures
+	'''
+
 	computeOver=1000
 	batchSize=100
 	it = iter(dataset.batch(batchSize))
