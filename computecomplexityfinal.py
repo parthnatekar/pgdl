@@ -28,8 +28,6 @@ class CustomComplexityFinal:
 	"""
     A class used to create margin based complexity measures 
 
-    ...
-
     Attributes
     ----------
 	model : tf.keras.Model()
@@ -57,10 +55,6 @@ class CustomComplexityFinal:
 	seed: int, optional
 		Random seed
 
-    Methods
-    -------
-    says(sound=None)
-        Prints the animals name and what sound it makes
     """
 
 	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 500, batchSize = 50, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False, seed=1):
