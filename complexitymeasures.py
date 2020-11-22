@@ -23,10 +23,26 @@ from computecomplexityfinal import *
 import copy
 import math
 
-def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
+def complexityMargin(model, dataset, augment='standard', program_dir=None):
 
 	'''
-	Fuction to calculate margin summary measures on augmented data
+	Fuction to calculate margin summary measure on augmented data
+
+	Parameters
+	----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	augment : str, optional
+		The type of augmentation to use ('standard', 'mixup', 'adverserial', 'adverserial+standard', 'mixup+standard')
+	program_dir : str, optional
+		The program directory to store and retrieve additional data
+
+	Returns
+	-------
+	float
+		complexity measure
 	'''
 
 	keras.backend.clear_session()
@@ -86,7 +102,21 @@ def complexity_but_simple(model, dataset, augment='standard', program_dir=None):
 def complexityNorm(model, dataset, program_dir=None):
 
 	'''
-	Function to calculate norm based measures
+	Function to calculate norm based complexity measures
+
+	Parameters
+	----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	program_dir : str, optional
+		The program directory to store and retrieve additional data
+
+	Returns
+	-------
+	float
+		complexity measure
 	'''
 
 	C = CustomComplexity(model, dataset, metric='batch_variance', augment='standard')
@@ -104,6 +134,20 @@ def complexityDB(model, dataset, program_dir=None):
 
 	'''
 	Function to calculate feature clustering based measures
+
+	Parameters
+	----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	program_dir : str, optional
+		The program directory to store and retrieve additional data
+
+	Returns
+	-------
+	float
+		complexity measure
 	'''
 
 	def check_number_of_labels(n_labels, n_samples):
@@ -149,7 +193,7 @@ def complexityDB(model, dataset, program_dir=None):
 	tf.keras.backend.clear_session()
 	db_score = {}
 	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=2500, batchSize=50)
-	it = iter(dataset.batch(C.batchSize))
+	it = iter(dataset.repeat(-1).batch(C.batchSize))
 	batch=next(it)
 	extractor = C.intermediateOutputs(batch=batch)
 	max_pool = tf.keras.layers.MaxPooling2D(pool_size=(4, 4), strides=None, padding="valid", data_format=None)
@@ -170,7 +214,7 @@ def complexityDB(model, dataset, program_dir=None):
 
 	D = DataAugmentor(batchSize = C.batchSize)
 	for l in layers:
-		it = iter(dataset.shuffle(5000, seed=1).batch(C.batchSize))
+		it = iter(dataset.repeat(-1).shuffle(5000, seed=1).batch(C.batchSize))
 		for i in range(C.computeOver//C.batchSize):
 			tf.keras.backend.clear_session()
 			batch1 = next(it)
@@ -197,18 +241,34 @@ def complexityDB(model, dataset, program_dir=None):
 	return(score)
 
 def complexityMixup(model, dataset, program_dir=None,
-					computeOver=1000, batchSize=200):
+					computeOver=1000, batchSize=100):
 
 	'''
-	Function to calculate Mixup based measures
+	Function to calculate label-wise Mixup based measure
+
+	Parameters
+	----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	program_dir : str, optional
+		The program directory to store and retrieve additional data
+	computeOver : int
+		The number of samples over which to compute the complexity measure
+	batchSize: 
+		The batch size
+
+	Returns
+	-------
+	float
+		complexity measure
 	'''
-	it = iter(dataset.repeat(-1).shuffle(5000).batch(batchSize))
+	it = iter(dataset.repeat(-1).shuffle(5000, seed=1).batch(batchSize))
 	batch = next(it)
 	n_classes = 1+np.max(batch[1].numpy())
-	if n_classes*10 > 100:
-		batchSize = 100
-	else:
-		batchSize = n_classes*10
+	batchSize = n_classes*10
+	computeOver = batchSize*10
 	tf.keras.backend.clear_session()
 	it = iter(dataset.repeat(-1).batch(batchSize))
 	N = computeOver//batchSize
@@ -264,22 +324,39 @@ def complexityMixup(model, dataset, program_dir=None,
 
 	for l in range(n_classes):
 		try:
-			vr.append(veracityRatio(model, batches, l))
+			vr.append(veracityRatio(model, batches, l, version_loss='log'))
 		except:
 			pass
 
 	return np.mean(vr)
 
 
-def complexityManifoldMixup(model, dataset, program_dir=None):
+def complexityManifoldMixup(model, dataset, program_dir=None, 
+							computeOver=1000, batchSize=100):
 
 	'''
-	Function to calculate Manifold Mixup based measures
+	Function to calculate Manifold Mixup based measure
+
+	Parameters
+	----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	program_dir : str, optional
+		The program directory to store and retrieve additional data
+	computeOver : int
+		The number of samples over which to compute the complexity measure
+	batchSize: int
+		The batch size
+
+	Returns
+	-------
+	float
+		complexity measure
 	'''
 
-	computeOver=1000
-	batchSize=100
-	it = iter(dataset.batch(batchSize))
+	it = iter(dataset.repeat(-1).batch(batchSize))
 	N = computeOver//batchSize
 	batches = [next(it) for i in range(N)]
 	digress = []
@@ -328,3 +405,87 @@ def complexityManifoldMixup(model, dataset, program_dir=None):
 		except:
 			pass
 	return np.mean(digress)
+
+def complexityMixupSoft(model, dataset, program_dir=None,
+					computeOver=1000, batchSize=100):
+
+	'''
+	Function to calculate Mixup based measure
+
+	Parameters
+	----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	program_dir : str, optional
+		The program directory to store and retrieve additional data
+	computeOver : int
+		The number of samples over which to compute the complexity measure
+	batchSize: int
+		The batch size
+
+	Returns
+	-------
+	float
+		complexity measure
+	'''
+
+	it = iter(dataset.repeat(-1).shuffle(5000, seed=1).batch(batchSize))
+	batch = next(it)
+	n_classes = 1+np.max(batch[1].numpy())
+	batchSize = n_classes*10
+	computeOver = batchSize*10
+	tf.keras.backend.clear_session()
+	it = iter(dataset.repeat(-1).batch(batchSize))
+	N = computeOver//batchSize
+	batches = [next(it) for i in range(N)]
+	np.random.seed(0)
+	vr = []
+
+	def intrapolateImages(img, lbl, alpha=0.5):
+		indices = np.random.randint(0, img.shape[0], size = img.shape[0])
+		img = img*alpha + img[indices]*(1-alpha)
+		lbl = lbl*alpha + lbl[indices]*(1-alpha)
+		return (tf.convert_to_tensor(img), tf.convert_to_tensor(lbl))
+
+	def choose(n, k):
+	    """
+	    A fast way to calculate binomial coefficients by Andrew Dalke (contrib).
+	    """
+	    if 0 <= k <= n:
+	        ntok = 1
+	        ktok = 1
+	        for t in range(1, min(k, n - k) + 1):
+	            ntok *= n
+	            ktok *= t
+	            n -= 1
+	        return ntok // ktok
+	    else:
+	        return 
+
+	def veracityRatio(model, batches, version_loss=None, label_smoothing=0.1):
+		ret = []
+		lossObject = tf.keras.losses.SparseCategoricalCrossentropy(from_logits = True)
+		for b in batches:
+			int_img, int_lbl = intrapolateImages(b[0].numpy(), b[1].numpy())
+			int_logits = model(int_img)
+			if version_loss == 'log':
+				logLikelihood = lossObject(int_lbl, int_logits)
+				ret.append(logLikelihood)
+			elif version_loss == 'cosine':
+				int_preds = tf.nn.softmax(int_logits, axis = 1)
+				target = tf.one_hot(int_lbl, int_preds.shape[-1]) * (1 - label_smoothing) + label_smoothing/2
+				ret.append((tf.keras.losses.CosineSimilarity()(target, int_preds)+1)/2)
+			elif version_loss == 'mse':
+				int_preds = tf.nn.softmax(int_logits, axis = 1)
+				target = tf.one_hot(int_lbl, int_preds.shape[-1]) #* (1 - label_smoothing) + label_smoothing/2
+				ret.append(tf.keras.losses.MeanSquaredError()(target, int_preds))
+			else:
+				int_preds = tf.argmax(int_logits, axis=1)
+				ret.append(np.sum(int_preds==label)/np.size(int_preds))
+		return np.mean(ret)
+
+	vr.append(veracityRatio(model, batches, version_loss='log'))
+
+	return np.mean(vr)

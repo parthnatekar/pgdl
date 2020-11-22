@@ -21,10 +21,49 @@ from math import log
 import matplotlib.pyplot as plt
 from augment import *
 import gc
+import time
 
 class CustomComplexityFinal:
 
-	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 5000, batchSize = 100, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False, seed=1):
+	"""
+    A class used to create margin based complexity measures 
+
+    ...
+
+    Attributes
+    ----------
+	model : tf.keras.Model()
+		The Keras model for which the complexity measure is to be computed
+	dataset : tf.data.Dataset
+		Dataset object from PGDL data loader
+	rootpath : str, optional
+		Path to root directory
+	computeOver : int
+		The number of samples over which to compute the complexity measure
+	batchSize: int
+		The batch size
+	basename: str, optional
+		basename argument of PGDL directory structure
+	metric: str, optional
+		Metric to use to scale margin Distribution
+	augment : str, optional
+		The type of augmentation to use ('standard', 'mixup', 'adverserial', 'adverserial+standard', 'mixup+standard')
+	penalize : bool, optional
+		Whether to penalize misclassified samples
+	input_margin : bool, optional
+		Whether to compute margin on input data instead of intermediate representations
+	network_scale: bool, optional
+		Only used for auxiliary experiments involving regularizing for network topology
+	seed: int, optional
+		Random seed
+
+    Methods
+    -------
+    says(sound=None)
+        Prints the animals name and what sound it makes
+    """
+
+	def __init__(self, model, ds, rootpath=None, mid=None, computeOver = 500, batchSize = 50, basename=None, metric='batch_variance', augment='standard', penalize=True, input_margin=False, network_scale = False, seed=1):
 		self.model = model
 		self.dataset = ds
 		self.computeOver = computeOver
@@ -48,15 +87,17 @@ class CustomComplexityFinal:
 
 	def computeMargins(self, top = 2):
 
-		it = iter(self.dataset.repeat(-1).shuffle(5000, seed=self.seed).batch(self.batchSize))
-		batch = next(it)
-		n_classes = 1+np.max(batch[1].numpy())
-		if n_classes*10 > 100:
-			self.batchSize = 100
-		else:
-			self.batchSize = n_classes*10
-		it = iter(self.dataset.repeat(-1).shuffle(5000, seed=self.seed).batch(self.batchSize))
+		'''
+		Fuction to compute margin distribution
 
+		Returns
+		-------
+		marginDistribution : dict
+			Dictionary containing lists of margin distribution for each layer
+
+		'''
+
+		it = iter(self.dataset.repeat(-1).shuffle(5000, seed=self.seed).batch(self.batchSize))
 		marginDistribution = {}
 		totalVariance = {}
 		totalVarianceTensor = {}
@@ -86,23 +127,22 @@ class CustomComplexityFinal:
 				batch_ = (D.augment(), batch[1])
 			elif self.augment == 'adverserial':
 				batch_ = (self.getAdverserialBatch(batch), batch[1])
-			elif self.augment == 'adv_aug':
+			elif self.augment == 'adverserial+standard':
 				D = DataAugmentor(batch[0], batchSize = self.batchSize)
 				batch_ = (D.augment(), batch[1])
 				batch_ = (self.getAdverserialBatch(batch_), batch_[1])
 			elif self.augment == 'mixup':
-				batch_ = self.batchMixupLabelwise(batch)
+				batch_ = self.batchMixupLabelwiseLinear(batch)
 			elif self.augment == 'mixup+standard':
 				D = DataAugmentor(batch[0], batchSize = self.batchSize)
 				batch_ = (D.augment(), batch[1])
 				batch_ = self.batchMixupLabelwise(batch_)
-				
+
 			for layer in self.layers:
 				if self.augment is not None:
 					grads, inter = self.distancefromMargin(batch_, layer+1, top)
 				else:
-					grads, inter = self.distancefromMargin(batch, layer+1, top)
-
+					grads, inter = self.distancefromMargin(batch_, layer+1, top)
 				try:
 					marginDistribution[layer] += grads
 					totalVarianceTensor[layer] = np.vstack((totalVarianceTensor[layer], np.array(inter).reshape(inter.shape[0], -1)))
@@ -117,14 +157,31 @@ class CustomComplexityFinal:
 		for layer in self.layers:
 			totalVariance[layer] = (trim_mean(np.var(totalVarianceTensor[layer].reshape(totalVarianceTensor[layer].shape[0], -1), axis = 0), proportiontocut=0.05))**(1/2)
 			normWidth[layer] = math.sqrt(np.prod(totalVarianceTensor[layer].shape[1:]))
-			if self.metric == 'batch_variance':
-				marginDistribution[layer] = np.array(marginDistribution[layer])/(np.array(totalVariance[layer])+1e-7) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
-			elif self.metric == 'original':
-				marginDistribution[layer] = np.array(marginDistribution[layer])/np.array(totalVariance[layer]) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
-			
+			marginDistribution[layer] = np.array(marginDistribution[layer])/(np.array(totalVariance[layer])+1e-7) #/np.sqrt(m_factor) #/totalVarianceTensor[layer].shape[1:][0]
+
 		return marginDistribution, normWidth
 
 	def distancefromMargin(self, batch, layer, top = 2):
+
+		'''
+		Fuction to calculate margin distance for a given layer
+
+		Parameters
+		----------
+		batch : tf.data.Dataset()
+			The batch over which to compute the margin distance. A tuple of tf.Tensor of the form (input data, labels)
+		layer : int
+			The layer for which to compute margin distance
+		top : int, optional
+			Index for which to compute margin. For example, top = 2 will compute the margins between the class with the highes and second-highest softmax scores
+
+		Returns
+		-------
+		grads : list
+			A list containing the scaled margin distances
+		np_out : np.array
+			An array containing the flattened intermediate feature vector
+		'''
 
 		if self.network_scale == True:
 			batch_ = tf.ones(shape = batch[0].shape)
@@ -139,7 +196,6 @@ class CustomComplexityFinal:
 			out_hard = tf.math.top_k(tf.nn.softmax(intermediateVal[-1], axis = 1), k = top)[1]
 			top_1 = out_hard[:,top-2]
 			misclassified = np.where(top_1 != batch[1])
-			# print('Misclassified Samples:', misclassified, len(misclassified[0]))
 
 			if self.penalize:
 				top_1_og = out_hard[:,top-2]
@@ -194,6 +250,22 @@ class CustomComplexityFinal:
 	
 	def batchMixup(self, batch, seed=1):
 
+		'''
+		Fuction to perform mixup on a batch of data
+
+		Parameters
+		----------
+		batch : tf.data.Dataset()
+			The batch over which to compute the margin distance. A tuple of tf.Tensor of the form (input data, labels)
+		seed : int, optional
+			Random seed
+
+		Returns
+		-------
+		tf.tensor
+			The mixed-up batch
+		'''
+
 		np.random.seed(seed)
 		x = batch[0]
 		mix_x = batch[0].numpy()
@@ -208,7 +280,41 @@ class CustomComplexityFinal:
 		else:
 			return tf.convert_to_tensor(mix_x)
 
+	def batchMixupLabelwiseLinear(self, batch, seed=2):
+
+
+		np.random.seed(seed)
+		labels = batch[1]
+		sorted_indices = np.argsort(batch[1])
+		sorted_labels = batch[1].numpy()[sorted_indices]
+		sorted_images = batch[0].numpy()[sorted_indices]
+		edges = np.array([len(sorted_labels[sorted_labels == i]) for i in range(max(sorted_labels)+1)])
+		edges = [0] + list(np.cumsum(edges))
+		shuffled_indices = []
+		for i in range(len(edges)-1):
+			# print(sorted_indices[edges[i]:edges[i+1]], sorted_labels[edges[i]:edges[i+1]])
+			shuffled_indices += list(np.random.choice(list(range(edges[i], edges[i+1])), replace=False, size=edges[i+1] - edges[i]))
+			# print(shuffled_indices[edges[i]:edges[i+1]])
+		intrapolateImages = (sorted_images + sorted_images[shuffled_indices])/2
+		return (tf.convert_to_tensor(intrapolateImages), tf.convert_to_tensor(sorted_labels))
+
 	def batchMixupLabelwise(self, batch, seed=1):
+
+		'''
+		Fuction to perform label-wise mixup on a batch of data
+
+		Parameters
+		----------
+		batch : tf.data.Dataset()
+			The batch over which to compute the margin distance. A tuple of tf.Tensor of the form (input data, labels)
+		seed : int, optional
+			Random seed
+
+		Returns
+		-------
+		tf.tensor
+			The label-wise mixed-up batch
+		'''
 
 		np.random.seed(seed)
 
@@ -250,7 +356,26 @@ class CustomComplexityFinal:
 
 	# ====================================== Utility Functions ======================================
 
-	def intermediateOutputs(self, layer=None, mode=None, batch=None):
+	def intermediateOutputs(self, batch, layer=None, mode=None):
+
+		'''
+		Fuction to get intermadiate feature vectors
+
+		Parameters
+		----------
+		batch : tf.Tensor
+			A batch of data
+		layer : int, optional
+			The layer for which to get intermediate features
+		mode : str, optional
+			'pre' to create a pre-model which takes in the input data and gives out intermediate activations,
+				'post' to take in intermediate activations and give out the model predictions
+	
+		Returns
+		-------
+		tf.keras.Model()
+			An extractor model
+		'''
 
 		model_ = keras.Sequential()
 		model_.add(keras.Input(shape=(batch[0][0].shape)))

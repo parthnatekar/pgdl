@@ -4,14 +4,43 @@ import matplotlib.pyplot as plt
 
 class DataAugmentor:
 
-	def __init__(self, batch=None, batchSize=50, seed=0, sess=None):
+	"""
+    A class used for data augmentation (partially taken from : https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset/)
+
+    Attributes
+    ----------
+	batch : tf.Tensor, optional
+		The batch to augment
+	batchSize: int
+		The batch size
+	seed: int, optional
+		Random seed
+
+    Methods
+    -------
+    flip
+        Flip Augmentation
+	color 
+		Color Augmentation
+	gaussian
+		Gaussian Noise
+	brightness
+		Custom Brightness Augmentation
+	zoom
+		Crop Augmentation
+	kerasAug
+		Inbuilt Keras Augmentations
+	augment
+		Wrapper Augmentation Function
+    """
+
+	def __init__(self, batch=None, batchSize=50, seed=0):
 		if batch is not None:
 			self.dataset = batch
 		self.seed = seed
 		tf.random.set_seed(self.seed)
 		np.random.seed(self.seed)
 		self.batchSize = batchSize
-		self.sess=sess
 
 	def flip(self, x: tf.Tensor) -> tf.Tensor:
 		"""Flip augmentation
@@ -23,7 +52,6 @@ class DataAugmentor:
 		    Augmented image
 		"""
 		x = tf.image.random_flip_left_right(x, seed=self.seed)
-		# x = tf.image.random_flip_up_down(x)
 
 		return x
 
