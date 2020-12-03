@@ -131,6 +131,8 @@ class CustomComplexityFinal:
 				D = DataAugmentor(batch[0], batchSize = self.batchSize)
 				batch_ = (D.augment(), batch[1])
 				batch_ = self.batchMixupLabelwise(batch_)
+			else:
+				batch_ = batch
 
 			for layer in self.layers:
 				if self.augment is not None:

@@ -64,9 +64,9 @@ class DataAugmentor:
 		Returns:
 		    Augmented image
 		# """
-		# x = tf.image.random_hue(x, 0.05, seed=self.seed)
-		# x = tf.image.random_saturation(x, 0.6, 1.2, seed=self.seed)
-		# x = tf.image.random_brightness(x, 0.05, seed=self.seed)
+		x = tf.image.random_hue(x, 0.05, seed=self.seed)
+		x = tf.image.random_saturation(x, 0.6, 1.2, seed=self.seed)
+		x = tf.image.random_brightness(x, 0.05, seed=self.seed)
 		x = tf.image.random_contrast(x, 0.7, 1.0, seed=self.seed)
 
 		return x

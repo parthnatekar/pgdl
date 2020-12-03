@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import * 
 from augment import *
 
-def complexity(model, dataset, program_dir):
+def complexity(model, dataset, program_dir, measure = 'DBI, Mixup', augment=None):
 	'''
 	Wrapper Complexity Function to combine various complexity measures
 
@@ -28,16 +28,29 @@ def complexity(model, dataset, program_dir):
 		Dataset object from PGDL data loader
 	program_dir : str, optional
 		The program directory to store and retrieve additional data
+	measure : str, optional
+		The complexity measure to compute, defaults to our winning solution of PGDL
+	augment : str, optional
+		Augmentation method to use, only relevant for some measures
 
 	Returns
 	-------
 	float
 		complexity measure
 	'''
-	
-	marginScore = complexityMargin(model, dataset, augment = 'standard', program_dir=program_dir)
-	# DBScore = complexityDB(model, dataset, program_dir=program_dir)
-	# tf.keras.backend.clear_session()
-	# mixupScore = complexityMixupSoft(model, dataset, program_dir=program_dir)	
-	print('-------Final Scores---------', marginScore)
-	return marginScore
+
+	if measure == 'DBI':
+		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True)
+	elif measure == 'Mixup':
+		complexityScore = complexityMixup(model, dataset, program_dir=program_dir)
+	elif measure == 'Margin':
+		complexityScore = complexityMargin(model, dataset, augment = augment, program_dir=program_dir)
+	elif measure = 'DBI, Mixup':
+		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True) * (1 - complexityMixup(model, dataset, program_dir=program_dir))
+	elif measure == 'ManifoldMixup':
+		complexityScore = complexityManifoldMixup(model, dataset, program_dir=program_dir)	
+	else:
+		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True) * (1 - complexityMixup(model, dataset, program_dir=program_dir))
+		
+	print('-------Final Scores---------', complexityScore)
+	return complexityScore
