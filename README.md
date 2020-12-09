@@ -6,7 +6,7 @@ that can be applied post-hoc on any trained model to get a relative measure of i
 Our solutions based on consistency, robustness, and separability of representations achieved the highest (22.92) and second-highest (13.93) scores 
 on the final phase of the [NeurIPS Competitition on Predicting Generalization in Deep Learning](https://sites.google.com/view/pgdl2020/home?authuser=0). We are **Team Interpex** on the [leaderboard](https://sites.google.com/view/pgdl2020/leaderboard?authuser=0).
 
-Detailed descriptions of our solution can be found at:
+Detailed descriptions of our solution can be found in our paper:
 
 ```
 @misc{natekar2020representation,
