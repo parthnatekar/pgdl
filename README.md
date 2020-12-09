@@ -24,6 +24,8 @@ Our solution is based on the quality of internal representations of deep neural 
 To run our solution on the public task of the PGDL Competition, clone this repository to the ```sample_code_submission``` folder of the PGDL directory, then run 
 ```python3 ../ingestion_program/ingestion.py``` from this folder.
 
+# Available Measures 
+
 The following complexity measures are currently available:
 
 1. Davies Bouldin Index 
@@ -33,6 +35,8 @@ The following complexity measures are currently available:
 5. Frobenius/Spectral Norm 
 
 The following measures are in the pipeline: FisherRegret, Silhouette Coefficient, Ablation Performance, Pac Bayes, Noise Attenutation.
+
+# Results
 
 Scores of our final measures on various tasks of PGDL are as follows:
 
