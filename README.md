@@ -21,6 +21,15 @@ The following complexity measures are currently available:
 
 The following measures are in the pipeline: FisherRegret, Silhouette Coefficient, Ablation Performance, Pac Bayes, Noise Attenutation.
 
+Scores of our final measures on various tasks of PGDL are as follows:
+
+|              MEASURE              |   | CIFAR-10 |  SVHN | CINIC-10 | CINIC-10 (No BatchNorm) | Oxford Flowers | Oxford Pets | Fashion MNIST | CIFAR 10 (With Augmentations) |
+|:---------------------------------:|:-:|:--------:|:-----:|:--------:|:-----------------------:|:--------------:|:-----------:|:-------------:|:-----------------------------:|
+| Davies Bouldin * Label-Wise Mixup |   |   25.22  | 22.19 |   31.79  |          15.92          |      43.99     |    12.59    |      9.24     |             25.86             |
+|            Mixup Margin           |   |   1.11   | 47.33 |   43.22  |          34.57          |      11.46     |    21.98    |      1.48     |             20.78             |
+|           Augment Margin          |   |   15.66  | 48.34 |   47.22  |          22.82          |      8.67      |    11.97    |      1.28     |             15.25             |
+
+
 Currently the code only works in the PGDL starting-kit framework available at <https://competitions.codalab.org/competitions/25301#learn_the_details-get_starting_kit>. You will need to manually choose the required measure in the ```complexity.py``` file and then run ```python3 ../ingestion_program/ingestion.py``` as mentioned above.
 
 
