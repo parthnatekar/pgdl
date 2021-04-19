@@ -130,7 +130,7 @@ def complexityNorm(model, dataset, program_dir=None):
 	
 	return score
 
-def complexityDB(model, dataset, program_dir=None, pool=True):
+def complexityDB(model, dataset, program_dir=None, pool=True, use_pca = False, layer='initial', computeOver=400, batchSize=40):
 
 	'''
 	Function to calculate feature clustering based measures. Based on the sklearn implementation of DB Index.
@@ -143,6 +143,14 @@ def complexityDB(model, dataset, program_dir=None, pool=True):
 		Dataset object from PGDL data loader
 	program_dir : str, optional
 		The program directory to store and retrieve additional data
+	pool : bool, optional
+		Whether to use max-pooling for dimensionality reduction, default True
+	use_pca : bool, optional
+		Whether to use PCA for dimensionality reduction, default False
+	layer : str or int, optional
+		Which layer to compute DB on. Either 'initial', for the first conv/pooling layer in the 
+		model, 'pre-penultimate' for the 3rd-from-last conv/pool layer, or an int indicating the 
+		layer. Defaults to 'initial'.
 
 	Returns
 	-------
@@ -192,7 +200,7 @@ def complexityDB(model, dataset, program_dir=None, pool=True):
 
 	tf.keras.backend.clear_session()
 	db_score = {}
-	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=400, batchSize=40)
+	C = CustomComplexityFinal(model, dataset, augment='mixup', computeOver=computeOver, batchSize=batchSize)
 	it = iter(dataset.repeat(-1).batch(C.batchSize))
 	batch=next(it)
 	extractor = C.intermediateOutputs(batch=batch)
@@ -202,12 +210,22 @@ def complexityDB(model, dataset, program_dir=None, pool=True):
 		max_pool = tf.keras.layers.Lambda(lambda x: x + 0)
 	layers = []
 
-	for l in [-3, -4, -5]:
-		c = list(model.get_layer(index = l).get_config().keys())
-		if 'strides' in c:
-			layers.append(l)
-		if len(layers) == 1:
-			break
+	layer_dict = {'initial': [0, 1, 2], 'pre-penultimate': [-3, -4, -5]}
+
+	if isinstance(layer, str):
+		for l in layer_dict[layer]:
+			c = list(model.get_layer(index = l).get_config().keys())
+			if 'strides' in c:
+				layers.append(l)
+			if len(layers) == 1:
+				break
+	else:
+		for l in [layer]:
+			c = list(model.get_layer(index = l).get_config().keys())
+			if 'strides' in c:
+				layers.append(l)
+			if len(layers) == 1:
+				break
 
 	D = DataAugmentor(batchSize = C.batchSize)
 	for l in layers:
@@ -224,8 +242,9 @@ def complexityDB(model, dataset, program_dir=None, pool=True):
 										max_pool(extractor(batch2[0].numpy())[l]).numpy().reshape(batch2[0].shape[0], -1), 
 										max_pool(extractor(batch3[0].numpy())[l]).numpy().reshape(batch3[0].shape[0], -1)), axis = 0)
 			target = np.concatenate((batch1[1], batch2[1], batch3[1]), axis = 0)
-			pca = PCA(n_components=25)
-			feature = pca.fit_transform(feature)
+			if use_pca == True:
+				pca = PCA(n_components=25)
+				feature = pca.fit_transform(feature)
 			try:
 				db_score[l] += db(feature, target)/(C.computeOver//C.batchSize)
 			except Exception as e:
@@ -236,7 +255,7 @@ def complexityDB(model, dataset, program_dir=None, pool=True):
 	return(score)
 
 def complexityMixup(model, dataset, program_dir=None,
-					computeOver=1000, batchSize=100):
+					computeOver=500, batchSize=50):
 
 	'''
 	Function to calculate label-wise Mixup based measure

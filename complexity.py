@@ -15,6 +15,7 @@ from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 from scipy.stats import * 
 from augment import *
+import argparse
 
 def complexity(model, dataset, program_dir, measure = 'DBI, Mixup', augment=None):
 	'''
@@ -40,17 +41,17 @@ def complexity(model, dataset, program_dir, measure = 'DBI, Mixup', augment=None
 	'''
 
 	if measure == 'DBI':
-		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True)
+		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True, layer='initial', computeOver=400, batchSize=40)
 	elif measure == 'Mixup':
 		complexityScore = complexityMixup(model, dataset, program_dir=program_dir)
 	elif measure == 'Margin':
 		complexityScore = complexityMargin(model, dataset, augment = augment, program_dir=program_dir)
-	elif measure = 'DBI, Mixup':
-		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True) * (1 - complexityMixup(model, dataset, program_dir=program_dir))
+	elif measure == 'DBI, Mixup':
+		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True, computeOver=400, batchSize=40) * (1 - complexityMixup(model, dataset, program_dir=program_dir))
 	elif measure == 'ManifoldMixup':
 		complexityScore = complexityManifoldMixup(model, dataset, program_dir=program_dir)	
 	else:
-		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True) * (1 - complexityMixup(model, dataset, program_dir=program_dir))
+		complexityScore = complexityDB(model, dataset, program_dir=program_dir, pool=True, computeOver=400, batchSize=40) * (1 - complexityMixup(model, dataset, program_dir=program_dir))
 		
 	print('-------Final Scores---------', complexityScore)
 	return complexityScore
